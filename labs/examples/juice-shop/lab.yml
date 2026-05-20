@@ -1,0 +1,53 @@
+name: OWASP Juice Shop
+version: "1.0"
+description: "Find and exploit 5 vulnerabilities in a modern web application"
+difficulty: beginner
+author: hacklab
+tags:
+  - web
+  - owasp
+  - sqli
+  - xss
+
+image: bkimminich/juice-shop:latest
+port: 3000
+
+# Wait for the web app to respond before starting the session
+wait_for: "http://localhost:3000"
+wait_secs: 45
+
+objectives:
+  - name: "Log in as the admin user"
+    category: "injection"
+    hints:
+      - "Try the email field with a SQL injection payload"
+      - "classic: ' OR 1=1 --"
+    flag: "flag{admin_sqli_bypass}"
+
+  - name: "Perform a reflected XSS attack"
+    category: "xss"
+    hints:
+      - "Look for search functionality"
+      - "Try injecting a script tag in the search box"
+    flag: "flag{xss_search_reflected}"
+
+  - name: "Access the administration page"
+    category: "broken-auth"
+    hints:
+      - "The admin panel is at /#/administration"
+      - "You need to be logged in as admin first"
+    flag: "flag{admin_panel_access}"
+
+  - name: "Find a forgotten backup file"
+    category: "sensitive-data"
+    hints:
+      - "Developers sometimes leave backup files in public directories"
+      - "Try /ftp/ directory"
+    flag: "flag{backup_file_found}"
+
+  - name: "Exploit a directory traversal vulnerability"
+    category: "injection"
+    hints:
+      - "The file server doesn't properly sanitize paths"
+      - "Try ../../etc/passwd in a file request"
+    flag: "flag{directory_traversal}"

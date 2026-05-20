@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  web:
+    image: vulnerables/web-dvwa:latest
+    ports:
+      - "8080:80"
+    environment:
+      DB_PASSWORD: "password"
+    labels:
+      - "hacklab.lab=sqli-lab"
+    networks:
+      - lab-net
+
+  db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: "password"
+      MYSQL_DATABASE: "dvwa"
+    labels:
+      - "hacklab.lab=sqli-lab"
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+    driver: bridge

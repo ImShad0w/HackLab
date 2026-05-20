@@ -1,0 +1,37 @@
+name: SQL Injection Lab
+version: "1.0"
+description: "Practice SQL injection techniques against a vulnerable PHP app with a MySQL backend"
+difficulty: beginner
+author: hacklab
+tags:
+  - sqli
+  - web
+  - php
+  - mysql
+
+compose_file: docker-compose.yml
+
+wait_for: "http://localhost:8080"
+wait_secs: 30
+
+objectives:
+  - name: "Bypass the login page authentication"
+    category: "sqli"
+    hints:
+      - "The login form is vulnerable to SQL injection"
+      - "Try: admin' -- "
+    flag: "flag{sqli_login_bypass}"
+
+  - name: "Extract all usernames from the database"
+    category: "sqli"
+    hints:
+      - "Use UNION-based injection to dump data"
+      - "The table name is 'users'"
+    flag: "flag{user_dump_complete}"
+
+  - name: "Dump the password hashes"
+    category: "sqli"
+    hints:
+      - "The passwords are stored in the 'password' column"
+      - "UNION SELECT password FROM users"
+    flag: "flag{password_hashes_dumped}"
