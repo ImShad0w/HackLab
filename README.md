@@ -4,16 +4,44 @@
 
 Spin up vulnerable lab environments with one command, complete guided objectives, and track your progress — all from the terminal.
 
+## Requirements
+
+- **Go 1.21+** (to build from source)
+- **Docker** (to run lab containers)
+- **Docker Compose** (usually bundled with Docker Desktop)
+
 ## Install
 
+### From source
+
 ```bash
-git clone <repo> hacklab
+# Clone the repo
+git clone https://github.com/<you>/hacklab.git
 cd hacklab
+
+# Build
 go build -o hacklab .
-sudo cp hacklab /usr/local/bin/
+
+# Install globally (optional)
+sudo mv hacklab /usr/local/bin/
+
+# Or add the current directory to your PATH
+echo 'export PATH="$HOME/Projects/hacklab:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
-Requires: **Docker** (for running lab containers)
+### Go install (if pushed to a public repo)
+
+```bash
+go install github.com/<you>/hacklab@latest
+```
+
+### Verify the install
+
+```bash
+hacklab --version
+hacklab --help
+```
 
 ## Quick Start
 
