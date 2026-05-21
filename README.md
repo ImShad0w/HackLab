@@ -2,7 +2,15 @@
 
 > Your terminal hacking playground.
 
-Spin up vulnerable lab environments with one command, complete guided objectives, and track your progress — all from the terminal.
+Spin up vulnerable lab environments with one command, track objectives, and hack at your own pace — all from the terminal.
+
+```
+H   H  A   A  CCCC   K   K  L      A   A  BBBB
+H   H  A   A  C      K  K   L      A   A  B   B
+HHHHH  AAAAA  C      KKK    L      AAAAA  BBBB
+H   H  A   A  C      K  K   L      A   A  B   B
+H   H  A   A  CCCC   K   K  LLLLL  A   A  BBBB
+```
 
 ## Requirements
 
@@ -15,74 +23,95 @@ Spin up vulnerable lab environments with one command, complete guided objectives
 ### From source
 
 ```bash
-# Clone the repo
-git clone https://github.com/<you>/hacklab.git
+git clone https://github.com/ImShad0w/HackLab.git
 cd hacklab
-
-# Build
 go build -o hacklab .
-
-# Install globally (optional)
 sudo mv hacklab /usr/local/bin/
-
-# Or add the current directory to your PATH
-echo 'export PATH="$HOME/Projects/hacklab:$PATH"' >> ~/.bashrc
-source ~/.bashrc
 ```
 
-### Go install (if pushed to a public repo)
+### Go install
 
 ```bash
-go install github.com/<you>/hacklab@latest
+go install github.com/ImShad0w/hacklab@latest
 ```
 
-### Verify the install
+### Verify
 
 ```bash
 hacklab --version
 hacklab --help
 ```
 
-## Quick Start
+## Commands
 
-```bash
-# List available labs
-hacklab list
+| Command | Description |
+|---------|-------------|
+| `hacklab list` | List all installed labs with slug, name, difficulty, objective count |
+| `hacklab start <slug>` | Spin up Docker containers and launch the interactive TUI |
+| `hacklab status` | Show currently running labs |
+| `hacklab stop <slug>` | Tear down a lab's containers |
+| `hacklab add <source>` | Install a lab from a git repo or local path |
+| `hacklab remove <slug>` | Remove a lab from your collection |
 
-# Start a lab (spins up Docker + interactive TUI)
-hacklab start juice-shop
+Example list output with column headers:
 
-# Stop a lab
-hacklab stop juice-shop
-
-# Check what's running
-hacklab status
-
-# Add a lab from git
-hacklab add https://github.com/user/hacklab-sqli-lab
-
-# Remove a lab
-hacklab remove juice-shop
 ```
+  SLUG (start <this>)  LAB NAME                            DIFFICULTY    OBJECTIVES  TYPE
+  ──────────────────  ──────────────────────────────────  ────────────  ──────────  ─────────────
+  🎯 juice-shop          OWASP Juice Shop                    beginner  ·  5 objectives  ·  single container
+  🎯 jwt-lab             JWT Token Hacking Lab               beginner  ·  4 objectives  ·  single container
+```
+
+> **The first column (slug) is what you type after `hacklab start`.**
+
+## Interactive TUI
+
+Starting a lab opens a fullscreen terminal session. It's a **checklist / todo tracker** — no flag guessing, no quizzes. You hack, you check it off.
+
+```
+  ⚡ OWASP Juice Shop
+  📡 http://localhost:3000
+
+  2/5  ████████░░░░░░░░░░░░  40%
+
+  ──────────────────────────────────────────────────────────
+
+    ○  1. Bypass login with SQL injection        [injection]
+    ○  2. Steal admin JWT token                  [auth]
+  ▸ ○  3. Access admin panel                     [broken-auth]
+    ○  4. Find forgotten backup file              [sensitive-data]
+    ○  5. Exploit directory traversal             [injection]
+
+  ──────────────────────────────────────────────────────────
+  ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit
+```
+
+**Controls:**
+- `↑/↓` or `j/k` — navigate objectives
+- `space` / `enter` — mark an objective as done
+- `h` — reveal hints for the selected objective
+- `q` — quit
+
+Progress saves automatically to `~/.hacklab/progress.json`.
 
 ## Lab Format
 
-Labs are directories with a `lab.yml` manifest. They're designed to be hackable — just create a folder, write a YAML file, and you've got a lab.
+Labs are directories with a `lab.yml` manifest. Just create a folder, write the YAML, and you've got a lab.
 
-### Single Container Lab
+### Single container
 
 ```yaml
 name: OWASP Juice Shop
 version: "1.0"
-description: "Find and exploit 5 vulnerabilities"
+description: "Find and exploit 5 vulnerabilities in a modern web app"
 difficulty: beginner
 author: you
-tags: [web, owasp, sqli]
+tags: [web, owasp, sqli, xss]
 
 image: bkimminich/juice-shop:latest
 port: 3000
 
-wait_for: "http://localhost:3000"  # readiness check
+wait_for: "http://localhost:3000"
 wait_secs: 45
 
 objectives:
@@ -90,24 +119,25 @@ objectives:
     category: "injection"
     hints:
       - "Try the email field"
-      - "classic: ' OR 1=1 --"
-    flag: "flag{sql_injection_master}"
+      - "Classic: ' OR 1=1 --"
 
-  - name: "Steal admin JWT token"
-    category: "auth"
+  - name: "Perform a reflected XSS attack"
+    category: "xss"
     hints:
-      - "Check the JWT secret"
-    flag: "flag{jwt_broken}"
+      - "Look for search functionality"
+      - "Try injecting a script tag"
 ```
 
-### Multi-Container Lab (docker-compose)
+### Multi-container (docker-compose)
 
 ```yaml
 name: SQL Injection Lab
+version: "1.0"
 description: "Practice SQLi against PHP + MySQL"
 difficulty: beginner
 
 compose_file: docker-compose.yml
+
 wait_for: "http://localhost:8080"
 wait_secs: 30
 
@@ -116,69 +146,93 @@ objectives:
     category: "sqli"
     hints:
       - "Try: admin' -- "
-    flag: "flag{sqli_login_bypass}"
+
+  - name: "Dump user credentials"
+    category: "sqli"
+    hints:
+      - "Use UNION-based injection"
+      - "Table is called 'users'"
 ```
 
-Then drop a `docker-compose.yml` in the same directory.
+Drop a `docker-compose.yml` in the same directory. Containers are automatically labelled with `hacklab.lab=<slug>` for tracking.
 
-## Interactive TUI
+### Manifest fields
 
-When you start a lab, you get an interactive terminal session:
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name of the lab |
+| `description` | No | Shown on the welcome screen |
+| `difficulty` | No | beginner / intermediate / advanced |
+| `author` | No | Your name/handle |
+| `tags` | No | List of searchable keywords |
+| `image` | One of* | Docker image to pull and run |
+| `compose_file` | One of* | Path to docker-compose.yml |
+| `port` | With `image` | Host port to bind |
+| `wait_for` | No | URL to poll for readiness |
+| `wait_secs` | No | Max seconds to wait (default: 30) |
+| `objectives` | Yes | List of challenges |
 
+### Objective fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | What the hacker needs to accomplish |
+| `category` | No | Tag shown next to the objective |
+| `hint` | No | Single hint string |
+| `hints` | No | List of progressive hints |
+
+## Bundled Labs
+
+`labs/examples/` ships with 8 ready-to-hack labs:
+
+| Slug | Name | Difficulty | Type |
+|------|------|-----------|------|
+| `juice-shop` | OWASP Juice Shop | beginner | single container |
+| `sqli-lab` | SQL Injection Lab | beginner | docker-compose |
+| `jwt-lab` | JWT Token Hacking Lab | beginner | single container |
+| `file-upload-lab` | Unrestricted File Upload Lab | intermediate | single container |
+| `api-lab` | REST API Security Lab | intermediate | single container |
+| `crypto-lab` | Cryptography Challenges Lab | intermediate | single container |
+| `privesc-lab` | Linux Privilege Escalation Lab | intermediate | docker-compose |
+| `docker-lab` | Docker Vulnerable Lab | intermediate | docker-compose |
+
+Install any of them with:
+
+```bash
+hacklab add ./labs/examples/juice-shop
+hacklab start juice-shop
 ```
-
-██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗ 
-██║  ██║██╔══██╗██╔════╝██║ ██╔╝██║     ██╔══██╗██╔══██╗
-███████║███████║██║     █████╔╝ ██║     ███████║██████╔╝
-██╔══██║██╔══██║██║     ██╔═██╗ ██║     ██╔══██║██╔══██╗
-██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║██████╔╝
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ 
-
-  📡 Target: http://localhost:3000
-
-  OBJECTIVES
-    ◻  1. Bypass login with SQL injection  [injection]
-    ◻  2. Steal admin JWT token            [auth]
-    ◻  3. Access admin panel               [broken-auth]
-    ◻  4. Find forgotten backup file        [sensitive-data]
-    ◻  5. Exploit directory traversal       [injection]
-
-  ─────────────────────────────────
-
-  ❯ submit flag{sql_injection_master}
-
-  ✅ Correct! 'Bypass login with SQL injection' completed
-```
-
-**Commands:**
-- `objectives` — show all objectives
-- `hint N` — get a hint for objective N
-- `submit FLAG` — submit a flag
-- `url` — show the target URL
-- `quit` — exit
 
 ## Storage
 
-Everything lives in `~/.hacklab/`:
+Everything is local, no cloud, no accounts:
 
 ```
 ~/.hacklab/
-├── labs/           ← your labs (just folders + lab.yml)
+├── labs/              ← your installed labs
 │   ├── juice-shop/
-│   └── sqli-lab/
-└── progress.json   ← local progress tracking
+│   │   └── lab.yml
+│   └── jwt-lab/
+│       └── lab.yml
+└── progress.json      ← completion state
 ```
 
-## Why?
+## Why Hacklab?
 
-- TryHackMe/HTB = web UI, accounts, subscriptions
-- VulnHub = manual VM setup, no guidance
-- Hacklab = one command, guided challenges, local-first, no accounts
+| | TryHackMe / HTB | VulnHub | **Hacklab** |
+|---|:---:|:---:|:---:|
+| Terminal-native | ✗ | ✗ | ✓ |
+| One-command setup | ✗ | ✗ | ✓ |
+| No account needed | ✗ | ✓ | ✓ |
+| Local-first | ✗ | ✓ | ✓ |
+| Extensible via YAML | ✗ | ✗ | ✓ |
+| Progress tracking | ✓ | ✗ | ✓ |
+| Offline capable | ✗ | ✓ | ✓ |
 
 ## Extending
 
-Since labs are just folders with YAML:
-- Write your own labs and share them
-- Fork repos, modify flags, add objectives
-- Point at any Docker image or compose setup
-- No lock-in — it's all local files and Docker
+Labs are just folders with a `lab.yml`. That's it. No API to learn, no SDK. Write one, share it as a git repo, and anyone can install it with `hacklab add`.
+
+## License
+
+MIT

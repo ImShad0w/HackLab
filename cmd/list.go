@@ -38,6 +38,12 @@ var listCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Printf("  ⚡  hacklab: %d lab(s)\n\n", len(labs))
 
+		// Column headers
+		fmt.Printf("  %-18s  %-34s  %-12s  %s  %s\n",
+			"SLUG (start <this>)", "LAB NAME", "DIFFICULTY", "OBJECTIVES", "TYPE")
+		fmt.Printf("  %-18s  %-34s  %-12s  %s  %s\n",
+			"──────────────────", "──────────────────────────────────", "────────────", "──────────", "─────────────")
+
 		for _, l := range labs {
 			mf := l.Manifest
 			objCount := len(mf.Objectives)
@@ -61,6 +67,7 @@ var listCmd = &cobra.Command{
 			)
 			if mf.Description != "" {
 				fmt.Printf("     %s\n", mf.Description)
+				fmt.Println()
 			}
 		}
 
