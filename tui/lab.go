@@ -30,64 +30,34 @@ const asciiLogo = `
 ███████║███████║██║     █████╔╝ ██║     ███████║██████╔╝
 ██╔══██║██╔══██║██║     ██╔═██╗ ██║     ██╔══██║██╔══██╗
 ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║██████╔╝
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝`
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝
+`
 
 // Styles
 var (
-	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(accentColor)).
-			Bold(true)
+	logoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
+	titleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
+	taglineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#8888aa")).Italic(true)
+	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
+	urlStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Underline(true)
+	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(yellowColor)).Bold(true)
+	tagStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor))
+	progressMsg  = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor))
+	sepStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(borderColor))
+	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor))
 
-	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(cyanColor)).
-			Bold(true)
+	objNameStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#e0e0e0")).Bold(true)
+	objDoneStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Bold(true)
+	objSelectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
+	categoryStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor)).Padding(0, 1).MarginLeft(1)
+	hintStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color(yellowColor)).PaddingLeft(4).Italic(true)
+	progressBarStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor))
+	progressDimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(borderColor))
+	arrowStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
 
-	urlStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(greenColor)).
-			Underline(true)
-
-	objectiveStyle = lipgloss.NewStyle().
-			PaddingLeft(2)
-
-	objNameStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#e0e0e0")).
-			Bold(true)
-
-	objDoneStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(greenColor)).
-			Bold(true)
-
-	objSelectedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(cyanColor)).
-				Bold(true)
-
-	categoryStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(dimColor)).
-			Padding(0, 1).
-			MarginLeft(1)
-
-	hintStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(yellowColor)).
-			PaddingLeft(4).
-			Italic(true)
-
-	progressBarStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(accentColor))
-
-	progressDimStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(borderColor))
-
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(dimColor))
-
-	separatorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color(borderColor))
-
-	checkDone = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Render("✔")
-	checkEmpty = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor)).Render("○")
+	checkDone     = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Render("✔")
+	checkEmpty    = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor)).Render("○")
 	checkSelected = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Render("◉")
-
-	arrowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
 )
 
 // Phase represents the current view state
@@ -100,15 +70,15 @@ const (
 )
 
 type model struct {
-	lab        *lab.Lab
-	prog       *progress.Progress
-	phase      Phase
-	cursor     int
-	scroll     int
-	width      int
-	height     int
-	targetURL  string
-	showHints  map[int]bool
+	lab       *lab.Lab
+	prog      *progress.Progress
+	phase     Phase
+	cursor    int
+	scroll    int
+	width     int
+	height    int
+	targetURL string
+	showHints map[int]bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -241,27 +211,28 @@ func (m model) viewWelcome() string {
 func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 	var lines []string
 
-	// ASCII logo centered
+	// ASCII logo centered — styled in accent color
 	logoLines := strings.Split(asciiLogo, "\n")
 	for _, ll := range logoLines {
-		lines = append(lines, centerRaw(ll, w))
+		styled := logoStyle.Render(ll)
+		lines = append(lines, centerStyled(styled, ll, w))
 	}
 
 	// Tagline
 	lines = append(lines, "")
-	lines = append(lines, centerRaw("your terminal hacking playground", w))
+	lines = append(lines, centerStyled(taglineStyle.Render("your terminal hacking playground"), "your terminal hacking playground", w))
 	lines = append(lines, "")
 
 	// Separator
-	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
 	lines = append(lines, "")
 
 	// Lab name
-	lines = append(lines, centerRaw(mf.Name, w))
+	lines = append(lines, centerStyled(titleStyle.Render(mf.Name), mf.Name, w))
 
 	// Description
 	if mf.Description != "" {
-		lines = append(lines, centerRaw(mf.Description, w))
+		lines = append(lines, centerStyled(taglineStyle.Render(mf.Description), mf.Description, w))
 	}
 
 	lines = append(lines, "")
@@ -272,12 +243,13 @@ func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 		difficulty = strings.ToUpper(mf.Difficulty)
 	}
 	info := fmt.Sprintf("Difficulty: %s  ·  Objectives: %d", difficulty, len(mf.Objectives))
-	lines = append(lines, centerRaw(info, w))
+	lines = append(lines, centerStyled(infoStyle.Render(info), info, w))
 
 	// Tags
 	if len(mf.Tags) > 0 {
 		lines = append(lines, "")
-		lines = append(lines, centerRaw(strings.Join(mf.Tags, "  "), w))
+		tags := strings.Join(mf.Tags, "  ")
+		lines = append(lines, centerStyled(tagStyle.Render(tags), tags, w))
 	}
 
 	// Previous progress
@@ -285,13 +257,13 @@ func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 	if completed > 0 {
 		lines = append(lines, "")
 		prev := fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))
-		lines = append(lines, centerRaw(prev, w))
+		lines = append(lines, centerStyled(progressMsg.Render(prev), prev, w))
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw("press enter to begin  ·  q to quit", w))
+	lines = append(lines, centerRaw(footerStyle.Render("press enter to begin  ·  q to quit"), w))
 
 	return lines
 }
@@ -334,7 +306,7 @@ func (m model) viewQuiz() string {
 	b.WriteString(fmt.Sprintf("  %d/%d  %s  %.0f%%\n\n", completed, total, bar, pct))
 
 	// === SEPARATOR ===
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString(sepStyle.Render(strings.Repeat("─", w)) + "\n")
 
 	// === OBJECTIVES ===
 	visibleArea := m.getVisibleArea()
@@ -381,17 +353,17 @@ func (m model) viewQuiz() string {
 
 		if m.showHints[i] {
 			if obj.Hint != "" {
-				b.WriteString(hintStyle.Render("  💡 " + obj.Hint) + "\n")
+				b.WriteString(hintStyle.Render("  💡 "+obj.Hint) + "\n")
 			}
 			for _, h := range obj.Hints {
-				b.WriteString(hintStyle.Render("  💡 " + h) + "\n")
+				b.WriteString(hintStyle.Render("  💡 "+h) + "\n")
 			}
 			b.WriteString("\n")
 		}
 	}
 
 	b.WriteString("\n")
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString(sepStyle.Render(strings.Repeat("─", w)) + "\n")
 	b.WriteString(footerStyle.Render(" ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit"))
 	b.WriteString("\n")
 
@@ -426,36 +398,45 @@ func (m model) buildCompleteLines(w int) []string {
 	var lines []string
 
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw("🏆  LAB COMPLETE", w))
+	lines = append(lines, centerStyled(titleStyle.Render("🏆  LAB COMPLETE"), "🏆  LAB COMPLETE", w))
 	lines = append(lines, "")
 
 	completed, attempts := m.prog.LabStats(m.lab.Name)
 	total := len(m.lab.Manifest.Objectives)
 
-	lines = append(lines, centerRaw(
-		fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total),
-		w))
-	lines = append(lines, centerRaw(
-		fmt.Sprintf("Total interactions: %d", attempts),
-		w))
+	info := fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total)
+	lines = append(lines, centerStyled(infoStyle.Render(info), info, w))
+
+	attemptsInfo := fmt.Sprintf("Total interactions: %d", attempts)
+	lines = append(lines, centerStyled(taglineStyle.Render(attemptsInfo), attemptsInfo, w))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw("press enter or q to exit", w))
+	lines = append(lines, centerRaw(footerStyle.Render("press enter or q to exit"), w))
 
 	return lines
 }
 
-// centerRaw centers a plain string without ANSI codes using rune width
-func centerRaw(s string, width int) string {
-	rw := utf8.RuneCountInString(s)
+// centerRaw centers a string that already has ANSI codes, using the given raw width for padding
+func centerRaw(styled string, width int) string {
+	rw := utf8.RuneCountInString(styled)
 	if rw >= width {
-		return s
+		return styled
 	}
 	padding := (width - rw) / 2
-	return strings.Repeat(" ", padding) + s
+	return strings.Repeat(" ", padding) + styled
+}
+
+// centerStyled centers a styled string, using the plain text's visual width for padding
+func centerStyled(styled string, plain string, width int) string {
+	vw := utf8.RuneCountInString(plain)
+	if vw >= width {
+		return styled
+	}
+	padding := (width - vw) / 2
+	return strings.Repeat(" ", padding) + styled
 }
 
 func min(a, b int) int {
