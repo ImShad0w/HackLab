@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,6 +22,15 @@ const (
 	dimColor    = "#444466"
 	borderColor = "#1a1a3e"
 )
+
+// HACKLAB ASCII logo — same as the CLI banner
+const asciiLogo = `
+██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗
+██║  ██║██╔══██╗██╔════╝██║ ██╔╝██║     ██╔══██╗██╔══██╗
+███████║███████║██║     █████╔╝ ██║     ███████║██████╔╝
+██╔══██║██╔══██║██║     ██╔═██╗ ██║     ██╔══██║██╔══██╗
+██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║██████╔╝
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝`
 
 // Styles
 var (
@@ -165,7 +175,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *model) toggleObjective(idx int) {
 	wasCompleted := m.prog.IsCompleted(m.lab.Name, idx)
 	if wasCompleted {
-		// Uncomplete it (remove from completed list)
 		var newCompleted []int
 		for _, i := range m.prog.Labs[m.lab.Name].Completed {
 			if i != idx {
@@ -178,7 +187,6 @@ func (m *model) toggleObjective(idx int) {
 	}
 	_ = m.prog.Save()
 
-	// Check if all done
 	completed, _ := m.prog.LabStats(m.lab.Name)
 	if completed == len(m.lab.Manifest.Objectives) {
 		m.phase = PhaseComplete
@@ -186,8 +194,7 @@ func (m *model) toggleObjective(idx int) {
 }
 
 func (m model) getVisibleArea() int {
-	// Reserve lines for header, footer, etc.
-	used := 8 // header(3) + title(1) + separator(1) + footer(2) + padding
+	used := 10
 	return m.height - used
 }
 
@@ -211,58 +218,82 @@ func (m model) viewWelcome() string {
 		w = 80
 	}
 
-	var b strings.Builder
+	lines := m.buildWelcomeLines(mf, w)
 
-	// Top border
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString("\n")
-
-	// Title
-	b.WriteString(center(titleStyle.Render("⚡ HACKLAB"), w) + "\n")
-	b.WriteString(center(footerStyle.Render("your terminal hacking playground"), w) + "\n")
-	b.WriteString("\n")
-
-	// Lab info card
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString("\n")
-	b.WriteString(center(headerStyle.Render(mf.Name), w) + "\n")
-	if mf.Description != "" {
-		b.WriteString(center(footerStyle.Render(mf.Description), w) + "\n")
+	// Vertical centering
+	totalLines := len(lines)
+	padTop := 0
+	if m.height > totalLines {
+		padTop = (m.height - totalLines) / 2
 	}
-	b.WriteString("\n")
+
+	var b strings.Builder
+	for i := 0; i < padTop; i++ {
+		b.WriteString("\n")
+	}
+	for _, line := range lines {
+		b.WriteString(line + "\n")
+	}
+
+	return b.String()
+}
+
+func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
+	var lines []string
+
+	// ASCII logo centered
+	logoLines := strings.Split(asciiLogo, "\n")
+	for _, ll := range logoLines {
+		lines = append(lines, centerRaw(ll, w))
+	}
+
+	// Tagline
+	lines = append(lines, "")
+	lines = append(lines, centerRaw("your terminal hacking playground", w))
+	lines = append(lines, "")
+
+	// Separator
+	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, "")
+
+	// Lab name
+	lines = append(lines, centerRaw(mf.Name, w))
+
+	// Description
+	if mf.Description != "" {
+		lines = append(lines, centerRaw(mf.Description, w))
+	}
+
+	lines = append(lines, "")
 
 	// Difficulty + objectives
-	difficulty := strings.ToUpper(mf.Difficulty)
-	if mf.Difficulty == "" {
-		difficulty = "UNKNOWN"
+	difficulty := "UNKNOWN"
+	if mf.Difficulty != "" {
+		difficulty = strings.ToUpper(mf.Difficulty)
 	}
-	b.WriteString(center(
-		fmt.Sprintf("Difficulty: %s  ·  Objectives: %d",
-			difficulty, len(mf.Objectives)),
-		w) + "\n")
-	b.WriteString("\n")
+	info := fmt.Sprintf("Difficulty: %s  ·  Objectives: %d", difficulty, len(mf.Objectives))
+	lines = append(lines, centerRaw(info, w))
 
 	// Tags
 	if len(mf.Tags) > 0 {
-		tagStr := strings.Join(mf.Tags, "  ")
-		b.WriteString(center(footerStyle.Render(tagStr), w) + "\n")
-		b.WriteString("\n")
+		lines = append(lines, "")
+		lines = append(lines, centerRaw(strings.Join(mf.Tags, "  "), w))
 	}
 
 	// Previous progress
 	completed, _ := m.prog.LabStats(m.lab.Name)
 	if completed > 0 {
-		b.WriteString(center(
-			footerStyle.Render(fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))),
-			w) + "\n")
-		b.WriteString("\n")
+		lines = append(lines, "")
+		prev := fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))
+		lines = append(lines, centerRaw(prev, w))
 	}
 
-	// Bottom border
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString(center(footerStyle.Render("press enter to begin  ·  q to quit"), w) + "\n")
+	lines = append(lines, "")
+	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, "")
+	lines = append(lines, centerRaw("press enter to begin  ·  q to quit", w))
 
-	return b.String()
+	return lines
 }
 
 func (m model) viewQuiz() string {
@@ -281,11 +312,9 @@ func (m model) viewQuiz() string {
 	var b strings.Builder
 
 	// === HEADER ===
-	// Lab name + difficulty
 	b.WriteString(titleStyle.Render(" ⚡ "+mf.Name) + " ")
 	b.WriteString(footerStyle.Render(mf.Difficulty) + "\n")
 
-	// Target URL
 	if m.targetURL != "" {
 		b.WriteString(" 📡 " + urlStyle.Render(m.targetURL) + "\n")
 	}
@@ -318,7 +347,6 @@ func (m model) viewQuiz() string {
 		isSelected := i == m.cursor
 		isDone := m.prog.IsCompleted(m.lab.Name, i)
 
-		// Check indicator
 		var check string
 		if isSelected && isDone {
 			check = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Render("✅")
@@ -330,7 +358,6 @@ func (m model) viewQuiz() string {
 			check = checkEmpty
 		}
 
-		// Objective name
 		name := obj.Name
 		if isDone {
 			name = objDoneStyle.Render(name)
@@ -340,13 +367,11 @@ func (m model) viewQuiz() string {
 			name = objNameStyle.Render(name)
 		}
 
-		// Arrow for selected
 		arrow := "  "
 		if isSelected {
 			arrow = arrowStyle.Render("▸ ")
 		}
 
-		// Category tag
 		cat := ""
 		if obj.Category != "" {
 			cat = categoryStyle.Render("[" + obj.Category + "]")
@@ -354,7 +379,6 @@ func (m model) viewQuiz() string {
 
 		b.WriteString(fmt.Sprintf("  %s%s %s%s\n", arrow, check, name, cat))
 
-		// Hints (if revealed)
 		if m.showHints[i] {
 			if obj.Hint != "" {
 				b.WriteString(hintStyle.Render("  💡 " + obj.Hint) + "\n")
@@ -366,14 +390,8 @@ func (m model) viewQuiz() string {
 		}
 	}
 
-	// Fill remaining space if needed
-	// (padding to push footer to bottom)
-
-	// === SEPARATOR ===
 	b.WriteString("\n")
 	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-
-	// === FOOTER ===
 	b.WriteString(footerStyle.Render(" ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit"))
 	b.WriteString("\n")
 
@@ -386,36 +404,65 @@ func (m model) viewComplete() string {
 		w = 80
 	}
 
+	lines := m.buildCompleteLines(w)
+
 	var b strings.Builder
-
-	b.WriteString("\n")
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString("\n")
-	b.WriteString(center(titleStyle.Render("🏆 LAB COMPLETE"), w) + "\n")
-	b.WriteString("\n")
-
-	completed, attempts := m.prog.LabStats(m.lab.Name)
-	total := len(m.lab.Manifest.Objectives)
-
-	b.WriteString(center(
-		fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total),
-		w) + "\n")
-	b.WriteString(center(
-		footerStyle.Render(fmt.Sprintf("Total interactions: %d", attempts)),
-		w) + "\n")
-	b.WriteString("\n")
-	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString(center(footerStyle.Render("press enter or q to exit"), w) + "\n")
+	totalLines := len(lines)
+	padTop := 0
+	if m.height > totalLines {
+		padTop = (m.height - totalLines) / 2
+	}
+	for i := 0; i < padTop; i++ {
+		b.WriteString("\n")
+	}
+	for _, line := range lines {
+		b.WriteString(line + "\n")
+	}
 
 	return b.String()
 }
 
-func center(s string, width int) string {
-	if len(s) >= width {
+func (m model) buildCompleteLines(w int) []string {
+	var lines []string
+
+	lines = append(lines, "")
+	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, "")
+	lines = append(lines, centerRaw("🏆  LAB COMPLETE", w))
+	lines = append(lines, "")
+
+	completed, attempts := m.prog.LabStats(m.lab.Name)
+	total := len(m.lab.Manifest.Objectives)
+
+	lines = append(lines, centerRaw(
+		fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total),
+		w))
+	lines = append(lines, centerRaw(
+		fmt.Sprintf("Total interactions: %d", attempts),
+		w))
+	lines = append(lines, "")
+	lines = append(lines, centerRaw(strings.Repeat("─", min(w, 60)), w))
+	lines = append(lines, "")
+	lines = append(lines, centerRaw("press enter or q to exit", w))
+
+	return lines
+}
+
+// centerRaw centers a plain string without ANSI codes using rune width
+func centerRaw(s string, width int) string {
+	rw := utf8.RuneCountInString(s)
+	if rw >= width {
 		return s
 	}
-	padding := (width - len(s)) / 2
+	padding := (width - rw) / 2
 	return strings.Repeat(" ", padding) + s
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // NewLab creates a new lab session model
