@@ -145,21 +145,21 @@ func (m *Manager) WaitForReady(url string, timeoutSecs int) error {
 func Stop(labName string) error {
 	containerName := fmt.Sprintf("hacklab-%s", labName)
 
-	// Try docker compose first
-	cmd := exec.Command("docker", "compose", "-p", containerName, "down", "-v")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err == nil {
-		fmt.Printf("  ✅ Lab '%s' stopped\n", labName)
-		return nil
-	}
-
 	// Fallback: stop single container
 	stopCmd := exec.Command("docker", "stop", containerName)
 	stopCmd.Stdout = nil
 	stopCmd.Stderr = nil
 	if err := stopCmd.Run(); err != nil {
 		fmt.Printf("  ℹ️  No running lab '%s' found\n", labName)
+		return nil
+	}
+
+	// Try docker compose as a fallback
+	cmd := exec.Command("docker", "compose", "-p", containerName, "down", "-v")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err == nil {
+		fmt.Printf("  ✅ Lab '%s' stopped\n", labName)
 		return nil
 	}
 

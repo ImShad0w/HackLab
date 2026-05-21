@@ -51,7 +51,9 @@ var listCmd = &cobra.Command{
 				container = "docker-compose"
 			}
 
-			fmt.Printf("  🎯 %-24s  %s  ·  %d %s  ·  %s\n",
+			// Slug (directory name) is what you actually type with 'hacklab start'
+			fmt.Printf("  🎯 %-18s  %-34s  %s  ·  %d %s  ·  %s\n",
+				l.Name,
 				mf.Name,
 				mf.Difficulty,
 				objCount, objWord,
