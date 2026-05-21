@@ -13,7 +13,7 @@ var rootCmd = &cobra.Command{
 	Use:   "hacklab",
 	Short: "Your terminal hacking playground",
 	Long: `
-H   H  A   A  CCCC   K   K  L      A   A  BBBB
+H   H  AAAAA  CCCC   K   K  L      AAAAA  BBBB
 H   H  A   A  C      K  K   L      A   A  B   B
 HHHHH  AAAAA  C      KKK    L      AAAAA  BBBB
 H   H  A   A  C      K  K   L      A   A  B   B
