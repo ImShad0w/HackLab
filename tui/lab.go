@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,7 +22,9 @@ const (
 )
 
 // HACKLAB ASCII logo — same as the CLI banner
-const asciiLogo = `██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗
+const asciiLogo = `
+.......................................................
+██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗
 ██║  ██║██╔══██╗██╔════╝██║ ██╔╝██║     ██╔══██╗██╔══██╗
 ███████║███████║██║     █████╔╝ ██║     ███████║██████╔╝
 ██╔══██║██╔══██║██║     ██╔═██╗ ██║     ██╔══██║██╔══██╗
@@ -205,32 +206,40 @@ func (m model) viewWelcome() string {
 }
 
 func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
+	// Styles with built-in centering (handles ANSI correctly)
+	logoLine := logoStyle.Copy().Align(lipgloss.Center).Width(w)
+	tagLine := taglineStyle.Copy().Align(lipgloss.Center).Width(w)
+	titleLine := titleStyle.Copy().Align(lipgloss.Center).Width(w)
+	infoLine := infoStyle.Copy().Align(lipgloss.Center).Width(w)
+	tagLineCentered := tagStyle.Copy().Align(lipgloss.Center).Width(w)
+	progLine := progressMsg.Copy().Align(lipgloss.Center).Width(w)
+	footerLine := footerStyle.Copy().Align(lipgloss.Center).Width(w)
+	sepLine := sepStyle.Copy().Align(lipgloss.Center).Width(w)
+
+	sepStr := strings.Repeat("─", min(w, 60))
+
 	var lines []string
 
-	// ASCII logo centered — styled in accent color
+	// ASCII logo — green, bold, centered by lipgloss
 	for _, ll := range strings.Split(asciiLogo, "\n") {
 		if ll == "" {
 			continue
 		}
-		styled := logoStyle.Render(ll)
-		lines = append(lines, centerStyled(styled, ll, w))
+		lines = append(lines, logoLine.Render(ll))
 	}
 
-	// Tagline
 	lines = append(lines, "")
-	lines = append(lines, centerStyled(taglineStyle.Render("your terminal hacking playground"), "your terminal hacking playground", w))
+	lines = append(lines, tagLine.Render("your terminal hacking playground"))
 	lines = append(lines, "")
-
-	// Separator
-	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
+	lines = append(lines, sepLine.Render(sepStr))
 	lines = append(lines, "")
 
 	// Lab name
-	lines = append(lines, centerStyled(titleStyle.Render(mf.Name), mf.Name, w))
+	lines = append(lines, titleLine.Render(mf.Name))
 
 	// Description
 	if mf.Description != "" {
-		lines = append(lines, centerStyled(taglineStyle.Render(mf.Description), mf.Description, w))
+		lines = append(lines, tagLine.Render(mf.Description))
 	}
 
 	lines = append(lines, "")
@@ -241,27 +250,25 @@ func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 		difficulty = strings.ToUpper(mf.Difficulty)
 	}
 	info := fmt.Sprintf("Difficulty: %s  ·  Objectives: %d", difficulty, len(mf.Objectives))
-	lines = append(lines, centerStyled(infoStyle.Render(info), info, w))
+	lines = append(lines, infoLine.Render(info))
 
 	// Tags
 	if len(mf.Tags) > 0 {
 		lines = append(lines, "")
-		tags := strings.Join(mf.Tags, "  ")
-		lines = append(lines, centerStyled(tagStyle.Render(tags), tags, w))
+		lines = append(lines, tagLineCentered.Render(strings.Join(mf.Tags, "  ")))
 	}
 
 	// Previous progress
 	completed, _ := m.prog.LabStats(m.lab.Name)
 	if completed > 0 {
 		lines = append(lines, "")
-		prev := fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))
-		lines = append(lines, centerStyled(progressMsg.Render(prev), prev, w))
+		lines = append(lines, progLine.Render(fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))))
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
+	lines = append(lines, sepLine.Render(sepStr))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(footerStyle.Render("press enter to begin  ·  q to quit"), w))
+	lines = append(lines, footerLine.Render("press enter to begin  ·  q to quit"))
 
 	return lines
 }
@@ -393,66 +400,33 @@ func (m model) viewComplete() string {
 }
 
 func (m model) buildCompleteLines(w int) []string {
+	sepLine := sepStyle.Copy().Align(lipgloss.Center).Width(w)
+	titleLine := titleStyle.Copy().Align(lipgloss.Center).Width(w)
+	infoLine := infoStyle.Copy().Align(lipgloss.Center).Width(w)
+	tagLine := taglineStyle.Copy().Align(lipgloss.Center).Width(w)
+	footerLine := footerStyle.Copy().Align(lipgloss.Center).Width(w)
+
+	sepStr := strings.Repeat("─", min(w, 60))
+
 	var lines []string
 
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
+	lines = append(lines, sepLine.Render(sepStr))
 	lines = append(lines, "")
-	lines = append(lines, centerStyled(titleStyle.Render("🏆  LAB COMPLETE"), "🏆  LAB COMPLETE", w))
+	lines = append(lines, titleLine.Render("🏆  LAB COMPLETE"))
 	lines = append(lines, "")
 
 	completed, attempts := m.prog.LabStats(m.lab.Name)
 	total := len(m.lab.Manifest.Objectives)
 
-	info := fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total)
-	lines = append(lines, centerStyled(infoStyle.Render(info), info, w))
-
-	attemptsInfo := fmt.Sprintf("Total interactions: %d", attempts)
-	lines = append(lines, centerStyled(taglineStyle.Render(attemptsInfo), attemptsInfo, w))
+	lines = append(lines, infoLine.Render(fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total)))
+	lines = append(lines, tagLine.Render(fmt.Sprintf("Total interactions: %d", attempts)))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(sepStyle.Render(strings.Repeat("─", min(w, 60))), w))
+	lines = append(lines, sepLine.Render(sepStr))
 	lines = append(lines, "")
-	lines = append(lines, centerRaw(footerStyle.Render("press enter or q to exit"), w))
+	lines = append(lines, footerLine.Render("press enter or q to exit"))
 
 	return lines
-}
-
-// stripANSI removes ANSI escape sequences from a string
-func stripANSI(s string) string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\x1b' {
-			j := i + 1
-			for j < len(s) && s[j] != 'm' && s[j] != '\x07' && s[j] != '\x1b' {
-				j++
-			}
-			if j < len(s) {
-				return stripANSI(s[:i] + s[j+1:])
-			}
-			return s[:i]
-		}
-	}
-	return s
-}
-
-// centerRaw centers a string that already has ANSI codes, using visual width (ANSI-stripped)
-func centerRaw(styled string, width int) string {
-	plain := stripANSI(styled)
-	rw := utf8.RuneCountInString(plain)
-	if rw >= width {
-		return styled
-	}
-	padding := (width - rw) / 2
-	return strings.Repeat(" ", padding) + styled
-}
-
-// centerStyled centers a styled string, using the plain text's visual width for padding
-func centerStyled(styled string, plain string, width int) string {
-	vw := utf8.RuneCountInString(plain)
-	if vw >= width {
-		return styled
-	}
-	padding := (width - vw) / 2
-	return strings.Repeat(" ", padding) + styled
 }
 
 func min(a, b int) int {
