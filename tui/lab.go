@@ -14,7 +14,6 @@ import (
 
 // Colors
 const (
-	bgColor     = "#0a0a0f"
 	accentColor = "#e94560"
 	cyanColor   = "#00d4ff"
 	greenColor  = "#00ff88"
@@ -24,21 +23,18 @@ const (
 )
 
 // HACKLAB ASCII logo — same as the CLI banner
-const asciiLogo = `
-██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗
+const asciiLogo = `██╗  ██╗ █████╗  ██████╗██╗  ██╗██╗      █████╗ ██████╗
 ██║  ██║██╔══██╗██╔════╝██║ ██╔╝██║     ██╔══██╗██╔══██╗
 ███████║███████║██║     █████╔╝ ██║     ███████║██████╔╝
 ██╔══██║██╔══██║██║     ██╔═██╗ ██║     ██╔══██║██╔══██╗
 ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║██████╔╝
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝
-`
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝`
 
 // Styles
 var (
-	logoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
+	logoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Bold(true)
 	titleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
 	taglineStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#8888aa")).Italic(true)
-	headerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
 	urlStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Underline(true)
 	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(yellowColor)).Bold(true)
 	tagStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor))
@@ -212,8 +208,10 @@ func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 	var lines []string
 
 	// ASCII logo centered — styled in accent color
-	logoLines := strings.Split(asciiLogo, "\n")
-	for _, ll := range logoLines {
+	for _, ll := range strings.Split(asciiLogo, "\n") {
+		if ll == "" {
+			continue
+		}
 		styled := logoStyle.Render(ll)
 		lines = append(lines, centerStyled(styled, ll, w))
 	}
@@ -419,9 +417,27 @@ func (m model) buildCompleteLines(w int) []string {
 	return lines
 }
 
-// centerRaw centers a string that already has ANSI codes, using the given raw width for padding
+// stripANSI removes ANSI escape sequences from a string
+func stripANSI(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\x1b' {
+			j := i + 1
+			for j < len(s) && s[j] != 'm' && s[j] != '\x07' && s[j] != '\x1b' {
+				j++
+			}
+			if j < len(s) {
+				return stripANSI(s[:i] + s[j+1:])
+			}
+			return s[:i]
+		}
+	}
+	return s
+}
+
+// centerRaw centers a string that already has ANSI codes, using visual width (ANSI-stripped)
 func centerRaw(styled string, width int) string {
-	rw := utf8.RuneCountInString(styled)
+	plain := stripANSI(styled)
+	rw := utf8.RuneCountInString(plain)
 	if rw >= width {
 		return styled
 	}
