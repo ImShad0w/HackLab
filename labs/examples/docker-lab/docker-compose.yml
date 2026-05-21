@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  vulnerable-app:
+    image: alpine:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host:ro
+    command: |
+      sh -c "
+        apk add --no-cache nginx curl
+        echo '<html><body><h1>Docker Vulnerable Lab</h1><p>Your container is compromised</p></body></html>' > /var/www/localhost/index.html
+        nginx
+        tail -f /dev/null
+      "
+    labels:
+      - "hacklab.lab=docker-lab"

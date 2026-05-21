@@ -1,0 +1,39 @@
+name: Docker Vulnerable Lab (DVL)
+version: "1.0"
+description: "Practice Docker container security — misconfigured containers, mounted volumes, privilege escalation from inside a container"
+difficulty: intermediate
+author: hacklab
+tags:
+  - docker
+  - containers
+  - privilege-escalation
+  - misconfiguration
+
+compose_file: docker-compose.yml
+
+wait_for: "http://localhost:8080"
+wait_secs: 30
+
+objectives:
+  - name: "Escape the container via mounted Docker socket"
+    category: "container-escape"
+    hints:
+      - "Check if /var/run/docker.sock is mounted"
+      - "If you have docker access, you can run privileged containers"
+      - "docker run -v /:/host -it alpine chroot /host"
+    flag: "flag{docker_socket_escape}"
+
+  - name: "Access sensitive data from a mounted volume"
+    category: "volume-leak"
+    hints:
+      - "Check mounted volumes with mount or df"
+      - "Look for /etc/shadow on the host volume"
+    flag: "flag{mounted_volume_leak}"
+
+  - name: "Exploit a container running as root"
+    category: "root-container"
+    hints:
+      - "Check whoami inside the container"
+      - "Containers running as root are dangerous"
+      - "Use the root access to read host files"
+    flag: "flag{container_root_access}"

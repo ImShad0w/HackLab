@@ -1,0 +1,59 @@
+name: Linux Privilege Escalation Lab
+version: "1.0"
+description: "Practice common Linux privesc techniques — SUID binaries, sudo misconfigurations, cron jobs, capabilities, and writable paths"
+difficulty: intermediate
+author: hacklab
+tags:
+  - linux
+  - privilege-escalation
+  - suid
+  - cron
+  - capabilities
+
+compose_file: docker-compose.yml
+
+wait_for: "http://localhost:2222"
+wait_secs: 30
+
+objectives:
+  - name: "Exploit a SUID binary to get root"
+    category: "suid"
+    hints:
+      - "Find SUID binaries: find / -perm -4000 2>/dev/null"
+      - "Check GTFOBins for known exploitable SUID programs"
+    flag: "flag{suid_privesc}"
+
+  - name: "Abuse sudo misconfiguration"
+    category: "sudo"
+    hints:
+      - "Check sudo -l for allowed commands"
+      - "Look for commands that can spawn shells (vim, less, python)"
+    flag: "flag{sudo_misuse}"
+
+  - name: "Exploit a writable cron job"
+    category: "cron"
+    hints:
+      - "Check /etc/crontab and /var/spool/cron/"
+      - "If a root cron job runs a writable script, inject commands"
+    flag: "flag{cron_injection}"
+
+  - name: "Abuse Linux capabilities"
+    category: "capabilities"
+    hints:
+      - "Check capabilities: getcap -r / 2>/dev/null"
+      - "Look for cap_setuid or cap_dac_read_search"
+    flag: "flag{capabilities_abuse}"
+
+  - name: "Exploit PATH hijacking"
+    category: "path"
+    hints:
+      - "Find scripts running with relative commands"
+      - "Place a malicious binary in a writable PATH directory"
+    flag: "flag{path_hijack}"
+
+  - name: "Find and exploit world-writable files"
+    category: "permissions"
+    hints:
+      - "find / -writable -type f 2>/dev/null"
+      - "Look for /etc/passwd or config files with sensitive data"
+    flag: "flag{writable_file_exploit}"

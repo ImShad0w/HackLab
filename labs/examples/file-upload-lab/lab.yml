@@ -1,0 +1,46 @@
+name: Unrestricted File Upload Lab
+version: "1.0"
+description: "Practice exploiting file upload vulnerabilities — bypass extensions, upload webshells, achieve RCE"
+difficulty: intermediate
+author: hacklab
+tags:
+  - file-upload
+  - rce
+  - web
+  - webshell
+
+image: vulnerables/web-dvwa:latest
+port: 8080
+
+wait_for: "http://localhost:8080"
+wait_secs: 30
+
+objectives:
+  - name: "Upload a PHP webshell bypassing extension filter"
+    category: "file-upload"
+    hints:
+      - "Try .php5, .phtml, or .php.jpg extensions"
+      - "Some filters only check the last extension"
+    flag: "flag{extension_bypass}"
+
+  - name: "Bypass MIME type validation"
+    category: "file-upload"
+    hints:
+      - "Change Content-Type header to image/jpeg"
+      - "Use Burp Suite to intercept and modify the upload request"
+    flag: "flag{mime_type_bypass}"
+
+  - name: "Execute remote code via uploaded file"
+    category: "rce"
+    hints:
+      - "Upload a PHP file with <?php system($_GET['cmd']); ?>"
+      - "Access it via the uploads directory"
+      - "?cmd=id"
+    flag: "flag{rce_via_upload}"
+
+  - name: "Bypass client-side JavaScript validation"
+    category: "file-upload"
+    hints:
+      - "Disable JavaScript in your browser"
+      - "Or intercept the request with a proxy and modify it"
+    flag: "flag{js_bypass}"

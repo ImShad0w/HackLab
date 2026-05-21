@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  vulnerable-host:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "2222:22"
+    privileged: true
+    volumes:
+      - ./challenge-scripts:/opt/challenges:ro
+    labels:
+      - "hacklab.lab=privesc-lab"
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+    driver: bridge

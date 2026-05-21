@@ -1,0 +1,47 @@
+name: Cryptography Challenges Lab
+version: "1.0"
+description: "Practice breaking weak cryptographic implementations — Caesar ciphers, ECB mode, padding oracles, weak RNG"
+difficulty: intermediate
+author: hacklab
+tags:
+  - cryptography
+  - cipher
+  - encryption
+  - padding-oracle
+
+image: ghcr.io/puzzle/cryptopals:latest
+port: 8080
+
+wait_for: "http://localhost:8080"
+wait_secs: 45
+
+objectives:
+  - name: "Decrypt a Caesar cipher message"
+    category: "classical"
+    hints:
+      - "Try all 25 possible shifts"
+      - "Look for common English words in the output"
+    flag: "flag{caesar_decrypted}"
+
+  - name: "Break AES-ECB mode encryption"
+    category: "block-cipher"
+    hints:
+      - "ECB mode encrypts identical blocks identically"
+      - "Look for repeating patterns in the ciphertext"
+      - "The image will reveal the pattern"
+    flag: "flag{ecb_penguin}"
+
+  - name: "Exploit a padding oracle attack"
+    category: "padding-oracle"
+    hints:
+      - "CBC mode with PKCS#7 padding is vulnerable"
+      - "The server leaks information via error messages"
+      - "Use padbuster or write your own oracle attacker"
+    flag: "flag{padding_oracle_master}"
+
+  - name: "Predict values from a weak PRNG"
+    category: "rng"
+    hints:
+      - "The random number generator uses time as seed"
+      - "Generate the same sequence by matching the timestamp"
+    flag: "flag{predictable_rng}"
