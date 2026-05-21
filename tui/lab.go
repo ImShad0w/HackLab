@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -12,399 +11,421 @@ import (
 	"hacklab/internal/progress"
 )
 
-// Styles
-var (
-	bgColor       = "#1a1a2e"
-	accentColor   = "#e94560"
-	cyanColor     = "#00d4ff"
-	greenColor    = "#0f0"
-	yellowColor   = "#f0e68c"
-	dimColor      = "#666"
-
-	bgStyle    = lipgloss.NewStyle().Background(lipgloss.Color(bgColor))
-	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
-	subStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor))
-	cardStyle  = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(accentColor)).
-			Padding(1, 2).
-			MarginTop(1)
-	objStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Bold(true)
-	doneStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Bold(true)
-	flagStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).PaddingLeft(2)
-	hintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(yellowColor)).Italic(true)
-	inputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor))
-	promptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
-	infoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor))
-	errStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
-	urlStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Underline(true)
+// Colors
+const (
+	bgColor     = "#0a0a0f"
+	accentColor = "#e94560"
+	cyanColor   = "#00d4ff"
+	greenColor  = "#00ff88"
+	yellowColor = "#f0e68c"
+	dimColor    = "#444466"
+	borderColor = "#1a1a3e"
 )
 
-// Phase represents the current state
+// Styles
+var (
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(accentColor)).
+			Bold(true)
+
+	headerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(cyanColor)).
+			Bold(true)
+
+	urlStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(greenColor)).
+			Underline(true)
+
+	objectiveStyle = lipgloss.NewStyle().
+			PaddingLeft(2)
+
+	objNameStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#e0e0e0")).
+			Bold(true)
+
+	objDoneStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(greenColor)).
+			Bold(true)
+
+	objSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(cyanColor)).
+				Bold(true)
+
+	categoryStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(dimColor)).
+			Padding(0, 1).
+			MarginLeft(1)
+
+	hintStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(yellowColor)).
+			PaddingLeft(4).
+			Italic(true)
+
+	progressBarStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(accentColor))
+
+	progressDimStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(borderColor))
+
+	footerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(dimColor))
+
+	separatorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(borderColor))
+
+	checkDone = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Render("✔")
+	checkEmpty = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor)).Render("○")
+	checkSelected = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor)).Render("◉")
+
+	arrowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Bold(true)
+)
+
+// Phase represents the current view state
 type Phase int
 
 const (
 	PhaseWelcome Phase = iota
-	PhaseMenu
-	PhaseHint
-	PhaseSubmit
-	PhaseResult
+	PhaseQuiz
 	PhaseComplete
 )
 
 type model struct {
-	lab      *lab.Lab
-	progress *progress.Progress
-	phase    Phase
-	input    string
-	cursor   bool
-	errMsg   string
-	msg      string
+	lab        *lab.Lab
+	prog       *progress.Progress
+	phase      Phase
+	cursor     int
+	scroll     int
+	width      int
+	height     int
+	targetURL  string
+	showHints  map[int]bool
 }
 
 func (m model) Init() tea.Cmd {
-	return tickCmd()
+	return nil
 }
-
-func tickCmd() tea.Cmd {
-	return tea.Tick(tickDuration, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
-
-type tickMsg time.Time
-
-const tickDuration = 500 * time.Millisecond
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			return m, tea.Quit
-		case "q":
-			if m.phase != PhaseMenu {
-				m.phase = PhaseMenu
-				m.input = ""
-				m.errMsg = ""
-				m.msg = ""
-				return m, nil
-			}
 			return m, tea.Quit
 		}
 
 		switch m.phase {
 		case PhaseWelcome:
 			if msg.String() == "enter" || msg.String() == " " {
-				m.phase = PhaseMenu
-				m.errMsg = ""
-				m.msg = ""
+				m.phase = PhaseQuiz
+				m.cursor = 0
+				m.scroll = 0
+				m.showHints = make(map[int]bool)
 			}
 
-		case PhaseMenu:
+		case PhaseQuiz:
+			total := len(m.lab.Manifest.Objectives)
 			switch msg.String() {
-			case "enter":
-				if m.input == "" {
-					m.errMsg = "type a command: objectives, hint N, submit FLAG, url, quit"
-					return m, nil
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+					if m.cursor < m.scroll {
+						m.scroll = m.cursor
+					}
 				}
-				return m.processCommand(m.input)
-			case "backspace":
-				if len(m.input) > 0 {
-					m.input = m.input[:len(m.input)-1]
+			case "down", "j":
+				if m.cursor < total-1 {
+					m.cursor++
+					visibleArea := m.getVisibleArea()
+					if m.cursor >= m.scroll+visibleArea {
+						m.scroll = m.cursor - visibleArea + 1
+					}
 				}
-			default:
-				if len(msg.String()) == 1 {
-					m.input += msg.String()
-				}
-			}
-			m.errMsg = ""
-
-		case PhaseHint:
-			if msg.String() == "enter" {
-				m.phase = PhaseMenu
-				m.input = ""
-			}
-
-		case PhaseSubmit:
-			if msg.String() == "enter" {
-				m.phase = PhaseMenu
-				m.input = ""
-			}
-
-		case PhaseResult:
-			if msg.String() == "enter" || msg.String() == " " {
-				m.phase = PhaseMenu
-				m.input = ""
+			case " ", "enter":
+				m.toggleObjective(m.cursor)
+			case "h", "H":
+				m.showHints[m.cursor] = !m.showHints[m.cursor]
+			case "q":
+				return m, tea.Quit
 			}
 
 		case PhaseComplete:
-			if msg.String() == "q" || msg.String() == "enter" {
+			if msg.String() == "enter" || msg.String() == " " || msg.String() == "q" {
 				return m, tea.Quit
 			}
 		}
-
-	case tickMsg:
-		m.cursor = !m.cursor
-		return m, tickCmd()
 	}
 	return m, nil
 }
 
-func (m *model) processCommand(input string) (tea.Model, tea.Cmd) {
-	input = strings.TrimSpace(input)
-	parts := strings.SplitN(input, " ", 2)
-	cmd := strings.ToLower(parts[0])
-
-	switch cmd {
-	case "objectives", "obj", "o", "":
-		m.phase = PhaseMenu
-		m.msg = ""
-		return m, nil
-
-	case "hint", "h":
-		if len(parts) < 2 {
-			m.errMsg = "usage: hint <number>"
-			return m, nil
-		}
-		var idx int
-		fmt.Sscanf(parts[1], "%d", &idx)
-		idx-- // 1-indexed
-		if idx < 0 || idx >= len(m.lab.Manifest.Objectives) {
-			m.errMsg = fmt.Sprintf("objective %d doesn't exist (1-%d)", idx+1, len(m.lab.Manifest.Objectives))
-			return m, nil
-		}
-		obj := m.lab.Manifest.Objectives[idx]
-		m.phase = PhaseHint
-		m.msg = formatHint(obj, idx+1)
-		return m, nil
-
-	case "submit", "s", "flag", "f":
-		if len(parts) < 2 {
-			m.errMsg = "usage: submit <flag>"
-			return m, nil
-		}
-		flag := strings.TrimSpace(parts[1])
-		return m.checkFlag(flag)
-
-	case "url", "target", "t":
-		m.phase = PhaseMenu
-		if m.lab.Manifest.Image != "" {
-			m.msg = fmt.Sprintf("Target URL: http://localhost:%d", m.lab.Manifest.Port)
-		} else {
-			m.msg = "This lab uses docker-compose — check the output above for endpoints"
-		}
-		return m, nil
-
-	case "quit", "exit", "q":
-		return m, tea.Quit
-
-	default:
-		m.errMsg = fmt.Sprintf("unknown command '%s' — try: objectives, hint N, submit FLAG, url, quit", cmd)
-		return m, nil
-	}
-}
-
-func (m *model) checkFlag(flag string) (tea.Model, tea.Cmd) {
-	// Check against all uncompleted objectives
-	for i, obj := range m.lab.Manifest.Objectives {
-		if m.progress.IsCompleted(m.lab.Name, i) {
-			continue
-		}
-		if strings.EqualFold(flag, obj.Flag) {
-			m.progress.RecordAttempt(m.lab.Name, i)
-			m.progress.CompleteObjective(m.lab.Name, i)
-			_ = m.progress.Save()
-
-			// Check if all done
-			if len(m.progress.Labs[m.lab.Name].Completed) == len(m.lab.Manifest.Objectives) {
-				m.phase = PhaseComplete
-				m.msg = "all objectives complete"
-				return m, nil
+func (m *model) toggleObjective(idx int) {
+	wasCompleted := m.prog.IsCompleted(m.lab.Name, idx)
+	if wasCompleted {
+		// Uncomplete it (remove from completed list)
+		var newCompleted []int
+		for _, i := range m.prog.Labs[m.lab.Name].Completed {
+			if i != idx {
+				newCompleted = append(newCompleted, i)
 			}
-
-			m.phase = PhaseResult
-			m.msg = fmt.Sprintf("✅ Correct! '%s' completed", obj.Name)
-			return m, nil
 		}
+		m.prog.Labs[m.lab.Name].Completed = newCompleted
+	} else {
+		m.prog.CompleteObjective(m.lab.Name, idx)
 	}
+	_ = m.prog.Save()
 
-	// Wrong flag
-	m.progress.RecordAttempt(m.lab.Name, -1) // track failed attempts
-	_ = m.progress.Save()
-	m.phase = PhaseResult
-	m.msg = "❌ Incorrect flag. Try again or request a hint."
-	return m, nil
+	// Check if all done
+	completed, _ := m.prog.LabStats(m.lab.Name)
+	if completed == len(m.lab.Manifest.Objectives) {
+		m.phase = PhaseComplete
+	}
+}
+
+func (m model) getVisibleArea() int {
+	// Reserve lines for header, footer, etc.
+	used := 8 // header(3) + title(1) + separator(1) + footer(2) + padding
+	return m.height - used
 }
 
 func (m model) View() string {
-	var b strings.Builder
-	b.WriteString("\n")
-
 	switch m.phase {
 	case PhaseWelcome:
-		b.WriteString(m.viewWelcome())
-	case PhaseMenu:
-		b.WriteString(m.viewMenu())
-	case PhaseHint:
-		b.WriteString(m.viewMenu())
-		b.WriteString(m.msg)
-		b.WriteString("\n\n")
-	case PhaseResult:
-		b.WriteString(m.viewMenu())
-		b.WriteString(m.msg)
-		b.WriteString("\n\n")
+		return m.viewWelcome()
+	case PhaseQuiz:
+		return m.viewQuiz()
 	case PhaseComplete:
-		b.WriteString(m.viewComplete())
+		return m.viewComplete()
+	default:
+		return ""
 	}
-
-	b.WriteString("\n")
-	return bgStyle.Render(b.String())
 }
 
 func (m model) viewWelcome() string {
 	mf := m.lab.Manifest
-	var b strings.Builder
-
-	b.WriteString(titleStyle.Render("⚡ HACKLAB") + "\n")
-	b.WriteString(subStyle.Render("your terminal hacking playground") + "\n\n")
-
-	b.WriteString(cardStyle.Render(
-		fmt.Sprintf("🎯 Lab: %s\n", mf.Name) +
-			fmt.Sprintf("📊 Difficulty: %s\n", capitalize(mf.Difficulty)) +
-			fmt.Sprintf("📝 Objectives: %d\n", len(mf.Objectives)) +
-			func() string {
-				if mf.Description != "" {
-					return "\n" + subStyle.Render(mf.Description)
-				}
-				return ""
-			}(),
-	) + "\n\n")
-
-	completed, _ := m.progress.LabStats(m.lab.Name)
-	if completed > 0 {
-		b.WriteString(subStyle.Render(fmt.Sprintf("  (previously completed: %d/%d)", completed, len(mf.Objectives))) + "\n\n")
+	w := m.width
+	if w <= 0 {
+		w = 80
 	}
 
-	b.WriteString(subStyle.Render("  type commands to interact • q to quit") + "\n")
-	b.WriteString(subStyle.Render("  press enter to begin") + "\n")
+	var b strings.Builder
+
+	// Top border
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString("\n")
+
+	// Title
+	b.WriteString(center(titleStyle.Render("⚡ HACKLAB"), w) + "\n")
+	b.WriteString(center(footerStyle.Render("your terminal hacking playground"), w) + "\n")
+	b.WriteString("\n")
+
+	// Lab info card
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString("\n")
+	b.WriteString(center(headerStyle.Render(mf.Name), w) + "\n")
+	if mf.Description != "" {
+		b.WriteString(center(footerStyle.Render(mf.Description), w) + "\n")
+	}
+	b.WriteString("\n")
+
+	// Difficulty + objectives
+	difficulty := strings.ToUpper(mf.Difficulty)
+	if mf.Difficulty == "" {
+		difficulty = "UNKNOWN"
+	}
+	b.WriteString(center(
+		fmt.Sprintf("Difficulty: %s  ·  Objectives: %d",
+			difficulty, len(mf.Objectives)),
+		w) + "\n")
+	b.WriteString("\n")
+
+	// Tags
+	if len(mf.Tags) > 0 {
+		tagStr := strings.Join(mf.Tags, "  ")
+		b.WriteString(center(footerStyle.Render(tagStr), w) + "\n")
+		b.WriteString("\n")
+	}
+
+	// Previous progress
+	completed, _ := m.prog.LabStats(m.lab.Name)
+	if completed > 0 {
+		b.WriteString(center(
+			footerStyle.Render(fmt.Sprintf("Previously completed: %d/%d", completed, len(mf.Objectives))),
+			w) + "\n")
+		b.WriteString("\n")
+	}
+
+	// Bottom border
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString(center(footerStyle.Render("press enter to begin  ·  q to quit"), w) + "\n")
 
 	return b.String()
 }
 
-func (m model) viewMenu() string {
+func (m model) viewQuiz() string {
+	w := m.width
+	if w <= 0 {
+		w = 80
+	}
 	mf := m.lab.Manifest
+	total := len(mf.Objectives)
+	completed, _ := m.prog.LabStats(m.lab.Name)
+	pct := 0.0
+	if total > 0 {
+		pct = float64(completed) / float64(total) * 100
+	}
+
 	var b strings.Builder
 
-	// Header
-	if mf.Image != "" {
-		b.WriteString(infoStyle.Render(fmt.Sprintf("  📡 Target: http://localhost:%d", mf.Port)) + "\n")
+	// === HEADER ===
+	// Lab name + difficulty
+	b.WriteString(titleStyle.Render(" ⚡ "+mf.Name) + " ")
+	b.WriteString(footerStyle.Render(mf.Difficulty) + "\n")
+
+	// Target URL
+	if m.targetURL != "" {
+		b.WriteString(" 📡 " + urlStyle.Render(m.targetURL) + "\n")
 	}
 	b.WriteString("\n")
 
-	// Objectives list
-	b.WriteString(titleStyle.Render("  OBJECTIVES") + "\n\n")
+	// Progress bar
+	barWidth := w - 20
+	if barWidth < 20 {
+		barWidth = 20
+	}
+	filled := int(pct / 100 * float64(barWidth))
+	if filled > barWidth {
+		filled = barWidth
+	}
+	bar := progressBarStyle.Render(strings.Repeat("█", filled))
+	bar += progressDimStyle.Render(strings.Repeat("░", barWidth-filled))
+	b.WriteString(fmt.Sprintf("  %d/%d  %s  %.0f%%\n\n", completed, total, bar, pct))
 
-	for i, obj := range m.lab.Manifest.Objectives {
-		// Check if completed
-		done := m.progress.IsCompleted(m.lab.Name, i)
-		idx := i + 1
+	// === SEPARATOR ===
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
 
-		status := "  "
-		if done {
-			status = doneStyle.Render("  ✅")
+	// === OBJECTIVES ===
+	visibleArea := m.getVisibleArea()
+	if visibleArea < 1 {
+		visibleArea = 5
+	}
+
+	for i := m.scroll; i < total && i < m.scroll+visibleArea; i++ {
+		obj := mf.Objectives[i]
+		isSelected := i == m.cursor
+		isDone := m.prog.IsCompleted(m.lab.Name, i)
+
+		// Check indicator
+		var check string
+		if isSelected && isDone {
+			check = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Render("✅")
+		} else if isSelected {
+			check = checkSelected
+		} else if isDone {
+			check = checkDone
 		} else {
-			status = subStyle.Render("  ◻ ")
+			check = checkEmpty
 		}
 
-		name := objStyle.Render(fmt.Sprintf("%d. %s", idx, obj.Name))
-		if done {
-			name = doneStyle.Render(fmt.Sprintf("%d. %s", idx, obj.Name))
+		// Objective name
+		name := obj.Name
+		if isDone {
+			name = objDoneStyle.Render(name)
+		} else if isSelected {
+			name = objSelectedStyle.Render(name)
+		} else {
+			name = objNameStyle.Render(name)
 		}
 
+		// Arrow for selected
+		arrow := "  "
+		if isSelected {
+			arrow = arrowStyle.Render("▸ ")
+		}
+
+		// Category tag
 		cat := ""
 		if obj.Category != "" {
-			cat = " " + subStyle.Render("["+obj.Category+"]")
+			cat = categoryStyle.Render("[" + obj.Category + "]")
 		}
 
-		b.WriteString(fmt.Sprintf("%s %s%s\n", status, name, cat))
+		b.WriteString(fmt.Sprintf("  %s%s %s%s\n", arrow, check, name, cat))
+
+		// Hints (if revealed)
+		if m.showHints[i] {
+			if obj.Hint != "" {
+				b.WriteString(hintStyle.Render("  💡 " + obj.Hint) + "\n")
+			}
+			for _, h := range obj.Hints {
+				b.WriteString(hintStyle.Render("  💡 " + h) + "\n")
+			}
+			b.WriteString("\n")
+		}
 	}
 
-	b.WriteString("\n")
-	b.WriteString(subStyle.Render("  ─────────────────────────────────") + "\n")
-	b.WriteString("\n")
+	// Fill remaining space if needed
+	// (padding to push footer to bottom)
 
-	// Error message
-	if m.errMsg != "" {
-		b.WriteString(errStyle.Render("  "+m.errMsg) + "\n\n")
-	}
-
-	// Command input
-	b.WriteString(promptStyle.Render("  ❯ ") + inputStyle.Render(m.input) + cursor(m.cursor))
+	// === SEPARATOR ===
 	b.WriteString("\n")
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
 
-	// Help
+	// === FOOTER ===
+	b.WriteString(footerStyle.Render(" ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit"))
 	b.WriteString("\n")
-	b.WriteString(subStyle.Render("  commands: objectives | hint N | submit FLAG | url | quit") + "\n")
 
 	return b.String()
 }
 
 func (m model) viewComplete() string {
-	var b strings.Builder
-
-	b.WriteString(titleStyle.Render("🏆 LAB COMPLETE!") + "\n\n")
-
-	completed, attempts := m.progress.LabStats(m.lab.Name)
-	total := len(m.lab.Manifest.Objectives)
-
-	b.WriteString(cardStyle.Render(
-		fmt.Sprintf("Lab: %s\n", m.lab.Manifest.Name) +
-			fmt.Sprintf("Completed: %d/%d objectives\n", completed, total) +
-			fmt.Sprintf("Total attempts: %d\n", attempts),
-	) + "\n\n")
-
-	b.WriteString(subStyle.Render("  press enter or q to exit") + "\n")
-
-	return b.String()
-}
-
-func formatHint(obj lab.Objective, idx int) string {
-	var b strings.Builder
-	b.WriteString(hintStyle.Render(fmt.Sprintf("  💡 Hint for '%s':", obj.Name)) + "\n\n")
-
-	if obj.Hint != "" {
-		b.WriteString(flagStyle.Render(obj.Hint) + "\n")
+	w := m.width
+	if w <= 0 {
+		w = 80
 	}
-	for _, h := range obj.Hints {
-		b.WriteString(flagStyle.Render(h) + "\n")
-	}
+
+	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString(subStyle.Render("  press enter to continue") + "\n")
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString("\n")
+	b.WriteString(center(titleStyle.Render("🏆 LAB COMPLETE"), w) + "\n")
+	b.WriteString("\n")
+
+	completed, attempts := m.prog.LabStats(m.lab.Name)
+	total := len(m.lab.Manifest.Objectives)
+
+	b.WriteString(center(
+		fmt.Sprintf("%s — %d/%d objectives completed", m.lab.Manifest.Name, completed, total),
+		w) + "\n")
+	b.WriteString(center(
+		footerStyle.Render(fmt.Sprintf("Total interactions: %d", attempts)),
+		w) + "\n")
+	b.WriteString("\n")
+	b.WriteString(separatorStyle.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString(center(footerStyle.Render("press enter or q to exit"), w) + "\n")
+
 	return b.String()
 }
 
-func cursor(visible bool) string {
-	if visible {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(accentColor)).Render("█")
+func center(s string, width int) string {
+	if len(s) >= width {
+		return s
 	}
-	return " "
-}
-
-func capitalize(s string) string {
-	if s == "" {
-		return ""
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
+	padding := (width - len(s)) / 2
+	return strings.Repeat(" ", padding) + s
 }
 
 // NewLab creates a new lab session model
 func NewLab(l *lab.Lab, p *progress.Progress, targetURL string) tea.Model {
 	return model{
-		lab:      l,
-		progress: p,
-		phase:    PhaseWelcome,
+		lab:       l,
+		prog:      p,
+		phase:     PhaseWelcome,
+		targetURL: targetURL,
+		showHints: make(map[int]bool),
 	}
 }
 
@@ -413,7 +434,11 @@ func RunLab(l *lab.Lab, p *progress.Progress, targetURL string) error {
 	p.StartLab(l.Name)
 	_ = p.Save()
 
-	prog := tea.NewProgram(NewLab(l, p, targetURL), tea.WithAltScreen())
+	prog := tea.NewProgram(
+		NewLab(l, p, targetURL),
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 	_, err := prog.Run()
 	return err
 }

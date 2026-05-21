@@ -21,7 +21,6 @@ objectives:
     hints:
       - "Change the JWT algorithm to 'none' in the header"
       - "Remove the signature entirely"
-    flag: "flag{jwt_none_algorithm}"
 
   - name: "Crack a weak HMAC secret"
     category: "jwt"
@@ -29,7 +28,6 @@ objectives:
       - "The secret is a common dictionary word"
       - "Use jwt-cracker or hashcat mode 16500"
       - "Try: john --wordlist=rockyou.txt token"
-    flag: "flag{weak_secret_cracked}"
 
   - name: "Exploit algorithm confusion (RS256 to HS256)"
     category: "jwt"
@@ -37,7 +35,6 @@ objectives:
       - "The server uses RS256 (asymmetric) but also accepts HS256"
       - "Use the public key as the HMAC secret"
       - "Sign a new token with HS256 using the public key"
-    flag: "flag{algorithm_confusion}"
 
   - name: "Forge an admin token"
     role: "admin"
@@ -45,4 +42,3 @@ objectives:
     hints:
       - "Decode an existing token and change the role claim"
       - "Re-sign it with the cracked secret"
-    flag: "flag{forged_admin_token}"

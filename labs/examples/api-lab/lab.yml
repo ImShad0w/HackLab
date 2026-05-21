@@ -21,32 +21,27 @@ objectives:
     hints:
       - "Change the user ID in API requests to access other users' data"
       - "GET /api/users/1/profile -> try /api/users/2/profile"
-    flag: "flag{bola_exploited}"
 
   - name: "Perform mass assignment to escalate privileges"
     category: "mass-assignment"
     hints:
       - "Add 'role': 'admin' to your registration/profile request"
       - "The API doesn't filter unexpected parameters"
-    flag: "flag{mass_assignment}"
 
   - name: "Bypass rate limiting on the login endpoint"
     category: "rate-limiting"
     hints:
       - "Use X-Forwarded-For header to spoof different IPs"
       - "Or rotate through a proxy list"
-    flag: "flag{rate_limit_bypassed}"
 
   - name: "Exploit insecure direct object reference in file downloads"
     category: "idor"
     hints:
       - "Check the file download endpoint for path traversal"
       - "Try ../../etc/passwd in the filename parameter"
-    flag: "flag{idor_file_access}"
 
   - name: "Discover a hidden admin endpoint"
     category: "recon"
     hints:
       - "Check /api/admin, /api/v1/admin, /api/swagger"
       - "Use API fuzzing tools like Arjun or ParamSpider"
-    flag: "flag{hidden_admin_endpoint}"

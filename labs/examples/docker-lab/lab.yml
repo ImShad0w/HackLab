@@ -21,14 +21,12 @@ objectives:
       - "Check if /var/run/docker.sock is mounted"
       - "If you have docker access, you can run privileged containers"
       - "docker run -v /:/host -it alpine chroot /host"
-    flag: "flag{docker_socket_escape}"
 
   - name: "Access sensitive data from a mounted volume"
     category: "volume-leak"
     hints:
       - "Check mounted volumes with mount or df"
       - "Look for /etc/shadow on the host volume"
-    flag: "flag{mounted_volume_leak}"
 
   - name: "Exploit a container running as root"
     category: "root-container"
@@ -36,4 +34,3 @@ objectives:
       - "Check whoami inside the container"
       - "Containers running as root are dangerous"
       - "Use the root access to read host files"
-    flag: "flag{container_root_access}"

@@ -20,18 +20,15 @@ objectives:
     hints:
       - "The login form is vulnerable to SQL injection"
       - "Try: admin' -- "
-    flag: "flag{sqli_login_bypass}"
 
   - name: "Extract all usernames from the database"
     category: "sqli"
     hints:
       - "Use UNION-based injection to dump data"
       - "The table name is 'users'"
-    flag: "flag{user_dump_complete}"
 
   - name: "Dump the password hashes"
     category: "sqli"
     hints:
       - "The passwords are stored in the 'password' column"
       - "UNION SELECT password FROM users"
-    flag: "flag{password_hashes_dumped}"

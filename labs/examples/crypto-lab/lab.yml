@@ -21,7 +21,6 @@ objectives:
     hints:
       - "Try all 25 possible shifts"
       - "Look for common English words in the output"
-    flag: "flag{caesar_decrypted}"
 
   - name: "Break AES-ECB mode encryption"
     category: "block-cipher"
@@ -29,7 +28,6 @@ objectives:
       - "ECB mode encrypts identical blocks identically"
       - "Look for repeating patterns in the ciphertext"
       - "The image will reveal the pattern"
-    flag: "flag{ecb_penguin}"
 
   - name: "Exploit a padding oracle attack"
     category: "padding-oracle"
@@ -37,11 +35,9 @@ objectives:
       - "CBC mode with PKCS#7 padding is vulnerable"
       - "The server leaks information via error messages"
       - "Use padbuster or write your own oracle attacker"
-    flag: "flag{padding_oracle_master}"
 
   - name: "Predict values from a weak PRNG"
     category: "rng"
     hints:
       - "The random number generator uses time as seed"
       - "Generate the same sequence by matching the timestamp"
-    flag: "flag{predictable_rng}"

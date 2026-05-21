@@ -41,7 +41,6 @@ type Objective struct {
 	Category string   `yaml:"category"`
 	Hint     string   `yaml:"hint"`
 	Hints    []string `yaml:"hints"` // progressive hints
-	Flag     string   `yaml:"flag"`
 }
 
 // LoadManifest reads and validates a lab.yml file
