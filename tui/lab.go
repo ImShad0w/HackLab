@@ -22,7 +22,6 @@ const (
 )
 
 // HACKLAB ASCII logo — same as the CLI banner
-// HACKLAB ASCII logo — pure ASCII, no Unicode box-drawing that causes terminal width drift
 const asciiLogo = `H   H  AAAAA  CCCC   K   K  L      AAAAA  BBBB
 H   H  A   A  C      K  K   L      A   A  B   B
 HHHHH  AAAAA  C      KKK    L      AAAAA  BBBB

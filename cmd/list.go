@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	"hacklab/internal/lab"
 	"hacklab/internal/store"
@@ -10,10 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	slugCol = 22
+	nameCol = 38
+	diffCol = 14
+	objCol  = 15
+	typeCol = 17
+)
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available labs",
-	Long:  `List all labs installed locally.`,
+	Long:  `List all labs installed locally with a table showing slug, name, difficulty, objectives, and container type.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		labsDir, err := store.LabsDir()
 		if err != nil {
@@ -38,31 +48,38 @@ var listCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Printf("  ⚡  hacklab: %d lab(s)\n\n", len(labs))
 
+		printTop()
+		printRow("SLUG", "LAB NAME", "DIFFICULTY", "OBJECTIVES", "TYPE")
+		printSep()
+
 		for i, l := range labs {
 			mf := l.Manifest
-
-			// Determine lab type
-			typeLabel := "single container"
-			if mf.ComposeFile != "" {
-				typeLabel = "multi container"
+			objText := fmt.Sprintf("%d objectives", len(mf.Objectives))
+			if len(mf.Objectives) == 1 {
+				objText = "1 objective"
 			}
 
-			// Slug and type header
-			fmt.Printf("  %s", l.Name)
-			fmt.Printf("  [%s]\n", typeLabel)
+			typeText := "docker-compose"
+			if mf.ComposeFile == "" {
+				typeText = "single container"
+			}
 
-			// Description
+			slug := truncate(l.Name, slugCol)
+			name := truncate(mf.Name, nameCol)
+			diff := truncate(mf.Difficulty, diffCol)
+
+			printRow(slug, name, diff, objText, typeText)
+
 			if mf.Description != "" {
-				fmt.Printf("  %s\n", mf.Description)
-			} else {
-				fmt.Printf("  no description\n")
+				printDesc("  " + truncate(mf.Description, fullDescW()-2))
 			}
 
-			// Separator between labs
 			if i < len(labs)-1 {
-				fmt.Println()
+				printSep()
 			}
 		}
+
+		printBottom()
 
 		fmt.Println()
 		fmt.Println("  start a lab with: hacklab start <name>")
@@ -71,3 +88,70 @@ var listCmd = &cobra.Command{
 	},
 }
 
+func printTop() {
+	fmt.Printf("  ┌%s┬%s┬%s┬%s┬%s┐\n",
+		strings.Repeat("─", slugCol),
+		strings.Repeat("─", nameCol),
+		strings.Repeat("─", diffCol),
+		strings.Repeat("─", objCol),
+		strings.Repeat("─", typeCol),
+	)
+}
+
+func printSep() {
+	fmt.Printf("  ├%s┼%s┼%s┼%s┼%s┤\n",
+		strings.Repeat("─", slugCol),
+		strings.Repeat("─", nameCol),
+		strings.Repeat("─", diffCol),
+		strings.Repeat("─", objCol),
+		strings.Repeat("─", typeCol),
+	)
+}
+
+func printBottom() {
+	fmt.Printf("  └%s┴%s┴%s┴%s┴%s┘\n",
+		strings.Repeat("─", slugCol),
+		strings.Repeat("─", nameCol),
+		strings.Repeat("─", diffCol),
+		strings.Repeat("─", objCol),
+		strings.Repeat("─", typeCol),
+	)
+}
+
+func printRow(slug, name, diff, obj, typ string) {
+	fmt.Printf("  │ %-*s │ %-*s │ %-*s │ %-*s │ %-*s │\n",
+		slugCol, slug,
+		nameCol, name,
+		diffCol, diff,
+		objCol, obj,
+		typeCol, typ,
+	)
+}
+
+func printDesc(desc string) {
+	fmt.Printf("  │ %-*s │\n", fullDescW(), desc)
+}
+
+func fullDescW() int {
+	return slugCol + nameCol + diffCol + objCol + typeCol + 8
+}
+
+func truncate(s string, maxW int) string {
+	if s == "" {
+		return "—"
+	}
+	rw := utf8.RuneCountInString(s)
+	if rw <= maxW {
+		return s
+	}
+	var b strings.Builder
+	count := 0
+	for _, r := range s {
+		if count+1 >= maxW {
+			break
+		}
+		b.WriteRune(r)
+		count++
+	}
+	return b.String() + "…"
+}
