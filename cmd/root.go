@@ -27,6 +27,7 @@ H   H  A   A  CCCC   K   K  LLLLL  A   A  BBBB
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(resumeCmd)
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(addCmd)

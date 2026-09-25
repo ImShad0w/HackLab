@@ -9,6 +9,7 @@ import (
 
 	"hacklab/internal/lab"
 	"hacklab/internal/progress"
+	"hacklab/internal/session"
 )
 
 // Colors
@@ -22,11 +23,7 @@ const (
 )
 
 // HACKLAB ASCII logo — same as the CLI banner
-const asciiLogo = `H   H  AAAAA  CCCC   K   K  L      AAAAA  BBBB
-H   H  A   A  C      K  K   L      A   A  B   B
-HHHHH  AAAAA  C      KKK    L      AAAAA  BBBB
-H   H  A   A  C      K  K   L      A   A  B   B
-H   H  A   A  CCCC   K   K  LLLLL  A   A  BBBB`
+const asciiLogo = `HACKLAB`
 
 // Styles
 var (
@@ -39,6 +36,18 @@ var (
 	progressMsg  = lipgloss.NewStyle().Foreground(lipgloss.Color(cyanColor))
 	sepStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(borderColor))
 	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(dimColor))
+	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(yellowColor)).Bold(true)
+
+	btnBase = lipgloss.NewStyle().
+		Background(lipgloss.Color("#23234a")).
+		Foreground(lipgloss.Color("#9a9ab5")).
+		Padding(0, 4).
+		Bold(true)
+	btnSelected = lipgloss.NewStyle().
+			Background(lipgloss.Color(accentColor)).
+			Foreground(lipgloss.Color("#ffffff")).
+			Padding(0, 4).
+			Bold(true)
 
 	objNameStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#e0e0e0")).Bold(true)
 	objDoneStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(greenColor)).Bold(true)
@@ -61,18 +70,22 @@ const (
 	PhaseWelcome Phase = iota
 	PhaseQuiz
 	PhaseComplete
+	PhaseWipeConfirm
 )
 
 type model struct {
 	lab       *lab.Lab
 	prog      *progress.Progress
 	phase     Phase
+	lastPhase Phase // phase to return to when a modal (wipe confirm) is cancelled
 	cursor    int
 	scroll    int
 	width     int
 	height    int
 	targetURL string
 	showHints map[int]bool
+	wipeIdx   int  // 0 = cancel, 1 = accept (wipe session)
+	wiped     bool // true once the user accepted wiping the session
 }
 
 func (m model) Init() tea.Cmd {
@@ -94,11 +107,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch m.phase {
 		case PhaseWelcome:
-			if msg.String() == "enter" || msg.String() == " " {
+			switch msg.String() {
+			case "enter", " ":
 				m.phase = PhaseQuiz
 				m.cursor = 0
 				m.scroll = 0
 				m.showHints = make(map[int]bool)
+			case "x":
+				m.openWipeConfirm()
 			}
 
 		case PhaseQuiz:
@@ -123,8 +139,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.toggleObjective(m.cursor)
 			case "h", "H":
 				m.showHints[m.cursor] = !m.showHints[m.cursor]
+			case "x":
+				m.openWipeConfirm()
 			case "q":
 				return m, tea.Quit
+			}
+
+		case PhaseWipeConfirm:
+			switch msg.String() {
+			case "left", "h", "up", "k":
+				m.wipeIdx = 0
+			case "right", "l", "down", "j":
+				m.wipeIdx = 1
+			case "enter", " ":
+				if m.wipeIdx == 1 {
+					m.wipe()
+					return m, tea.Quit
+				}
+				m.phase = m.lastPhase
+			case "esc", "q":
+				m.phase = m.lastPhase
 			}
 
 		case PhaseComplete:
@@ -134,6 +168,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// openWipeConfirm shows the wipe-session confirmation dialog.
+func (m *model) openWipeConfirm() {
+	m.lastPhase = m.phase
+	m.wipeIdx = 0 // default to cancel — destructive action needs an explicit choice
+	m.phase = PhaseWipeConfirm
+}
+
+// wipe erases the lab's progress and the saved session, so the session
+// can no longer be resumed. It must always be reached via the confirmation
+// dialog — this is destructive and cannot be undone.
+func (m *model) wipe() {
+	m.prog.WipeLab(m.lab.Name)
+	_ = m.prog.Save()
+	_ = session.Clear()
+	m.wiped = true
 }
 
 func (m *model) toggleObjective(idx int) {
@@ -170,9 +221,85 @@ func (m model) View() string {
 		return m.viewQuiz()
 	case PhaseComplete:
 		return m.viewComplete()
+	case PhaseWipeConfirm:
+		return m.viewWipeConfirm()
 	default:
 		return ""
 	}
+}
+
+// viewWipeConfirm renders the destructive-action confirmation dialog.
+// The user must explicitly move to Accept and hit enter — progress is lost
+// and the session can no longer be resumed.
+func (m model) viewWipeConfirm() string {
+	w := m.width
+	h := m.height
+	if w <= 0 {
+		w = 80
+	}
+	if h <= 0 {
+		h = 24
+	}
+
+	content := strings.Join([]string{
+		"🧹 " + titleStyle.Render("Wipe session"),
+		"",
+		taglineStyle.Render("Lab: " + m.lab.Manifest.Name),
+		"",
+		"  This will permanently erase all progress for this lab.",
+		"  The session will be closed and can no longer be resumed.",
+		"",
+		warnStyle.Render("⚠  Your progress will be lost. This cannot be undone."),
+		"",
+		strings.Join([]string{
+			m.wipeButton("Cancel", m.wipeIdx == 0),
+			m.wipeButton("Accept", m.wipeIdx == 1),
+		}, "     "),
+		"",
+		footerStyle.Render("←/→ or j/k to choose  ·  enter to confirm  ·  esc to go back"),
+	}, "\n")
+
+	boxW := min(w-4, 72)
+	if boxW < 40 {
+		boxW = 40
+	}
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(accentColor)).
+		Padding(1, 3).
+		Width(boxW).
+		Align(lipgloss.Center)
+
+	rendered := box.Render(content)
+
+	// Center the box both horizontally and vertically in the terminal.
+	padLeft := (w - boxW) / 2
+	if padLeft < 0 {
+		padLeft = 0
+	}
+
+	lines := strings.Split(rendered, "\n")
+	padTop := 0
+	if h > len(lines) {
+		padTop = (h - len(lines)) / 2
+	}
+
+	var b strings.Builder
+	b.WriteString(strings.Repeat("\n", padTop))
+	for _, ln := range lines {
+		b.WriteString(strings.Repeat(" ", padLeft))
+		b.WriteString(ln)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+func (m model) wipeButton(label string, selected bool) string {
+	if selected {
+		return btnSelected.Render(label)
+	}
+	return btnBase.Render(label)
 }
 
 func (m model) viewWelcome() string {
@@ -265,7 +392,7 @@ func (m model) buildWelcomeLines(mf *lab.Manifest, w int) []string {
 	lines = append(lines, "")
 	lines = append(lines, sepLine.Render(sepStr))
 	lines = append(lines, "")
-	lines = append(lines, footerLine.Render("press enter to begin  ·  q to quit"))
+	lines = append(lines, footerLine.Render("press enter to begin  ·  x wipe session  ·  q to quit"))
 
 	return lines
 }
@@ -366,7 +493,7 @@ func (m model) viewQuiz() string {
 
 	b.WriteString("\n")
 	b.WriteString(sepStyle.Render(strings.Repeat("─", w)) + "\n")
-	b.WriteString(footerStyle.Render(" ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit"))
+	b.WriteString(footerStyle.Render(" ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  x wipe session  ·  q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -444,16 +571,32 @@ func NewLab(l *lab.Lab, p *progress.Progress, targetURL string) tea.Model {
 	}
 }
 
-// RunLab starts the TUI lab session
-func RunLab(l *lab.Lab, p *progress.Progress, targetURL string) error {
+// Result reports how the interactive session ended.
+type Result struct {
+	// Wiped is true when the user chose to wipe the session: progress was
+	// erased and the lab can no longer be resumed.
+	Wiped bool
+}
+
+// RunLab starts the TUI lab session and records it as the latest session
+// so `hacklab resume` can relaunch it later.
+func RunLab(l *lab.Lab, p *progress.Progress, targetURL string) (Result, error) {
 	p.StartLab(l.Name)
 	_ = p.Save()
+	_ = session.Save(l.Name)
 
 	prog := tea.NewProgram(
 		NewLab(l, p, targetURL),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)
-	_, err := prog.Run()
-	return err
+	final, err := prog.Run()
+	if err != nil {
+		return Result{}, err
+	}
+
+	if fm, ok := final.(model); ok && fm.wiped {
+		return Result{Wiped: true}, nil
+	}
+	return Result{}, nil
 }

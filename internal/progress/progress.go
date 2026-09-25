@@ -16,9 +16,9 @@ type Progress struct {
 
 // LabProgress tracks progress for a single lab
 type LabProgress struct {
-	Started    time.Time  `json:"started"`
-	LastPlayed time.Time  `json:"last_played"`
-	Completed  []int      `json:"completed"` // indices of completed objectives
+	Started    time.Time   `json:"started"`
+	LastPlayed time.Time   `json:"last_played"`
+	Completed  []int       `json:"completed"` // indices of completed objectives
 	Attempts   map[int]int `json:"attempts"`  // objective index -> attempt count
 }
 
@@ -117,6 +117,12 @@ func (p *Progress) IsCompleted(labName string, objectiveIndex int) bool {
 		}
 	}
 	return false
+}
+
+// WipeLab removes all progress for a lab so nothing can be resumed.
+// Used when the user explicitly wipes a session in the TUI.
+func (p *Progress) WipeLab(labName string) {
+	delete(p.Labs, labName)
 }
 
 // LabStats returns stats for a lab

@@ -48,6 +48,7 @@ hacklab --help
 |---------|-------------|
 | `hacklab list` | List all installed labs with slug, name, difficulty, objective count |
 | `hacklab start <slug>` | Spin up Docker containers and launch the interactive TUI |
+| `hacklab resume` | Resume the last lab session — picks up right where you left off |
 | `hacklab status` | Show currently running labs |
 | `hacklab stop <slug>` | Tear down a lab's containers |
 | `hacklab add <source>` | Install a lab from a git repo or local path |
@@ -83,16 +84,21 @@ Starting a lab opens a fullscreen terminal session. It's a **checklist / todo tr
     ○  5. Exploit directory traversal             [injection]
 
   ──────────────────────────────────────────────────────────
-  ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  q quit
+  ↑/↓ navigate  ·  space/enter toggle  ·  h hint  ·  x wipe session  ·  q quit
 ```
 
 **Controls:**
 - `↑/↓` or `j/k` — navigate objectives
 - `space` / `enter` — mark an objective as done
 - `h` — reveal hints for the selected objective
+- `x` — wipe the session (clears all progress & resume data, with a confirmation prompt)
 - `q` — quit
 
 Progress saves automatically to `~/.hacklab/progress.json`.
+
+**Resuming:** `hacklab resume` relaunches the most recently played lab and its
+containers, picking up where you left off. Wiping a session (`x` in the TUI,
+confirming the prompt) erases that lab's progress and removes the resume data.
 
 ## Lab Format
 

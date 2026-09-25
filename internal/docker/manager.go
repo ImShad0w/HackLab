@@ -114,6 +114,29 @@ func (m *Manager) StartCompose(mf *lab.Manifest) error {
 	return nil
 }
 
+// StartSingleIfNeeded starts a single container lab unless it is already
+// running. Used by `resume` so an already-up lab can be resumed directly.
+func (m *Manager) StartSingleIfNeeded(mf *lab.Manifest) (string, int, error) {
+	containerName := fmt.Sprintf("hacklab-%s", m.labName)
+	if m.isRunning(containerName) {
+		return containerName, mf.Port, nil
+	}
+	return m.StartSingle(mf)
+}
+
+// StartComposeIfNeeded starts a docker-compose lab unless it is already
+// running. Used by `resume` so an already-up lab can be resumed directly.
+func (m *Manager) StartComposeIfNeeded(mf *lab.Manifest) error {
+	projectName := fmt.Sprintf("hacklab-%s", m.labName)
+	cmd := exec.Command("docker", "compose", "-p", projectName, "ps", "--services", "--filter", "status=running")
+	cmd.Dir = m.labDir
+	output, err := cmd.Output()
+	if err == nil && len(strings.TrimSpace(string(output))) > 0 {
+		return nil // already running
+	}
+	return m.StartCompose(mf)
+}
+
 // WaitForReady polls a URL until it responds or times out
 func (m *Manager) WaitForReady(url string, timeoutSecs int) error {
 	if url == "" {

@@ -19,7 +19,8 @@ var statusCmd = &cobra.Command{
 		}
 
 		if len(labs) == 0 {
-			fmt.Println("\n  no labs running\n")
+			fmt.Println("\n  no labs running")
+			fmt.Println()
 			return nil
 		}
 
